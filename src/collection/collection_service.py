@@ -28,12 +28,43 @@ def get_collection(id, ownerId):
         return item
 
 
+def get_collection_unrestricted(id):
+    try:
+        item = list(items_container.query_items(
+            query="SELECT * FROM i WHERE i.id=@id AND i.partitionKey.partition=@partition",
+            parameters=[
+                {"name":"@id", "value": id},
+                {"name":"@partition", "value": "collection"}],
+            enable_cross_partition_query=True)).pop(0)
+    except exceptions.CosmosHttpResponseError:
+        item = "ServerError"
+    except IndexError:
+        item = "NotFound"
+    finally:
+        return item
+
+
 def get_all_collections(ownerId):
     try:
         response = list(items_container.query_items(
             query="SELECT * FROM i WHERE i.data.ownerId=@ownerId AND i.partitionKey.partition=@partition",
             parameters=[
                 {"name":"@ownerId", "value": ownerId},
+                {"name":"@partition", "value": "collection"}],
+            enable_cross_partition_query=True))
+    except exceptions.CosmosHttpResponseError:
+        response = "ServerError"
+    except IndexError:
+        response = "NotFound"
+    finally:
+        return response
+
+
+def get_all_collections_unrestricted():
+    try:
+        response = list(items_container.query_items(
+            query="SELECT * FROM i WHERE i.partitionKey.partition=@partition",
+            parameters=[
                 {"name":"@partition", "value": "collection"}],
             enable_cross_partition_query=True))
     except exceptions.CosmosHttpResponseError:
@@ -79,3 +110,43 @@ def delete_collection(id):
         return "Success"
     except exceptions.CosmosHttpResponseError as e:
         return 'NotFound'
+    
+def add_collection_access(collection, id):
+    data = collection['data']
+    if "viewers" in data.keys():
+        viewers = data.get('viewers', [])
+        if id not in viewers:
+            viewers.add(id)
+        else:
+            return "Conflict"
+    else:
+        viewers = [id]
+    data['viewers'] = viewers
+    collection['data'] = data
+    try:
+        response = items_container.replace_item(item=collection, body=collection)
+    except exceptions.CosmosHttpResponseError:
+        response = "ServerError"
+    finally:
+        return response
+    
+
+def remove_todo_access(collection, id):
+    data = collection['data']
+    if "viewers" in data.keys():
+        viewers = data.get('viewers', [])
+        if id in viewers:
+            viewers.remove(id)
+        else:
+            return "NotFound"
+    else:
+        return "NotFound"
+    data['viewers'] = viewers
+    collection['data'] = data
+    
+    try:
+        response = items_container.replace_item(item=collection, body=collection)
+    except exceptions.CosmosHttpResponseError:
+        response = "ServerError"
+    finally:
+        return response

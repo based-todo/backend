@@ -28,12 +28,17 @@ def get_all():
 
     db_response = todo_service.read_items(payload['id'])
     if db_response == "ServerError":
-         response = make_response({}, 500)
+         return make_response({}, 500)
     elif db_response == "NotFound":
-        response = make_response({}, 404)
-    else:
-        response = make_response(db_response, 200)
-    return response
+        return make_response({}, 404)
+   
+    my_todos = db_response
+    todos = todo_service.read_items_unrestricted()
+    for todo in todos:
+        data = todo['data']
+        if data.get('viewers') != None and payload['id'] in data.get('viewers'):
+            my_todos.append(todo)
+    return  make_response(my_todos, 200) 
 
 
 @todo_app.route('/api/v1/todos/<id>')
@@ -51,11 +56,68 @@ def get_item(id):
     if db_response == "ServerError":
          response = make_response({}, 500)
     elif db_response == "NotFound":
-        response = make_response({}, 404)
+        response = make_response("Not found", 404)
+        todo = todo_service.read_item_unrestricted(id)
+        data = todo['data']
+        if payload['id'] in data['viewers']:
+            response = make_response(todo, 200)
     else:
         response = make_response(db_response, 200)
     return response
 
+
+@todo_app.route('/api/v1/todos/access/<id>', methods=['POST'])
+def add_todo_access(id):
+    token = request.headers.get('Authorization')
+    
+    if not token:
+        return make_response({}, 401)
+    try:
+        payload = jwt.decode(token, config.settings['token_secret_key'], algorithms=['HS256'])
+    except jwt.InvalidTokenError:
+        return make_response({}, 403) 
+
+    todo = todo_service.read_item_unrestricted(id)
+    if todo == "ServerError":
+         response = make_response({}, 500)
+    elif todo == "NotFound":
+        response = make_response({"message": "ToDo not found"}, 404)
+    
+    db_response = todo_service.add_todo_access(todo, payload['id'])
+    if db_response == "ServerError":
+         response = make_response({}, 500)
+    elif db_response == "Conflict":
+        response = make_response({}, 409)
+    else:
+        response = make_response(db_response, 200)
+    return response
+
+
+@todo_app.route('/api/v1/todos/access/<id>', methods=['PUT'])
+def remove_todo_access(id):
+    token = request.headers.get('Authorization')
+    
+    if not token:
+        return make_response({}, 401)
+    try:
+        payload = jwt.decode(token, config.settings['token_secret_key'], algorithms=['HS256'])
+    except jwt.InvalidTokenError:
+        return make_response({}, 403)
+
+    todo = todo_service.read_item_unrestricted(id)
+    if todo == "ServerError":
+         response = make_response({}, 500)
+    elif todo == "NotFound":
+        response = make_response({"message": "ToDo not found"}, 404)
+    
+    db_response = todo_service.remove_todo_access(todo, payload['id'])
+    if db_response == "ServerError":
+         response = make_response({}, 500)
+    elif db_response == "NotFound":
+        response = make_response({"message": "User not in the viewers of this todo"}, 404)
+    else:
+        response = make_response(db_response, 200)
+    return response
 
 @todo_app.route('/api/v1/todos', methods=['POST'])
 def create_item():

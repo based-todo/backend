@@ -26,6 +26,10 @@ def get_collection(id):
     if collection == "ServerError":
         return make_response({}, 500)
     elif collection == "NotFound":
+        collection = collection_service.get_collection_unrestricted(id)
+        data = collection['data']
+        if data.get('viewers') != None and payload['id'] in data['viewers']:
+            return make_response(collection, 200)
         return make_response({'message': "Collection Not Found"}, 404)
     else:
         return make_response(collection, 200)
@@ -45,8 +49,16 @@ def get_all_collections():
     db_response = collection_service.get_all_collections(payload['id'])
     if db_response == "ServerError":
         return make_response({}, 500)
-    else:
-        return make_response(db_response, 201)
+    
+    my_collections = db_response
+    collections = collection_service.get_all_collections_unrestricted()
+    for collection in collections:
+        print(collection)
+        data = collection['data']
+        print(data)
+        if data.get('viewers') != None and payload['id'] in data['viewers']:
+            my_collections.append(collection)
+    return make_response(my_collections, 201)
     
 
 @collection_app.route('/api/v1/collections/todos/<id>', methods=['GET'])
@@ -64,6 +76,10 @@ def get_todos_of_collection(id):
     if collection == "ServerError":
         return make_response({}, 500)
     elif collection == "NotFound":
+        collection = collection_service.get_collection_unrestricted(id)
+        data = collection['data']
+        if data.get('viewers') != None and payload['id'] in data['viewers']:
+            return make_response(collection, 200)
         return make_response({'message': "Collection Not Found"}, 404)
     
     data = collection['data']
@@ -196,3 +212,57 @@ def remove_collection(id):
         return make_response({}, 404)
     else:
         return make_response({}, 200)
+    
+
+@collection_app.route('/api/v1/collections/access/<id>', methods=['POST'])
+def add_collection_access(id):
+    token = request.headers.get('Authorization')
+    
+    if not token:
+        return make_response({}, 401)
+    try:
+        payload = jwt.decode(token, config.settings['token_secret_key'], algorithms=['HS256'])
+    except jwt.InvalidTokenError:
+        return make_response({}, 403) 
+
+    collection = collection_service.get_collection_unrestricted(id)
+    if collection == "ServerError":
+         response = make_response({}, 500)
+    elif collection == "NotFound":
+        response = make_response({"message": "Collection not found"}, 404)
+    
+    db_response = collection_service.add_collection_access(collection, payload['id'])
+    if db_response == "ServerError":
+         response = make_response({}, 500)
+    elif db_response == "Conflict":
+        response = make_response({}, 409)
+    else:
+        response = make_response(db_response, 200)
+    return response
+
+
+@collection_app.route('/api/v1/collections/access/<id>', methods=['PUT'])
+def remove_collection_access(id):
+    token = request.headers.get('Authorization')
+    
+    if not token:
+        return make_response({}, 401)
+    try:
+        payload = jwt.decode(token, config.settings['token_secret_key'], algorithms=['HS256'])
+    except jwt.InvalidTokenError:
+        return make_response({}, 403)
+    
+    collection = collection_service.get_collection_unrestricted(id)
+    if collection == "ServerError":
+         response = make_response({}, 500)
+    elif collection == "NotFound":
+        response = make_response({"message": "Collection not found"}, 404)
+    
+    db_response = collection_service.remove_collection_access(collection, payload['id'])
+    if db_response == "ServerError":
+         response = make_response({}, 500)
+    elif db_response == "NotFound":
+        response = make_response({}, 404)
+    else:
+        response = make_response(db_response, 200)
+    return response
