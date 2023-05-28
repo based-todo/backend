@@ -50,6 +50,33 @@ def register():
     # email_client.begin_send(message)
     return create_user(user)
 
+
+@user_app.route('/api/v1/register/guest', methods=['POST'])
+def register_guest():
+    token = request.headers.get('Authorization')
+    if not token:
+        return make_response({}, 401)
+  
+    try:
+        payload = jwt.decode(token, config.settings['token_secret_key'], algorithms=['HS256'])
+    except jwt.InvalidTokenError:
+        return  make_response({}, 403)
+    
+    user = user_service.get_user_by_id(payload['id'])
+    if user == "NotFound":
+        return make_response({}, 404)
+    
+    if "uname" in user.keys():
+        return  make_response({}, 405)
+    
+    data = request.get_json()
+
+    db_response = user_service.update_user(payload['id'], data)
+    if db_response == "ServerError":
+        return make_response({}, 500)
+    else:
+        return make_response(db_response, 200)
+
 @user_app.route('/api/v1/login', methods=['POST'])
 def login():
     user_login = request.get_json()
@@ -69,7 +96,28 @@ def login():
 
     payload = {'id': user.get('id')}
     token = jwt.encode(payload, config.settings['token_secret_key'], algorithm='HS256')
+
     return make_response({'token': token.decode('utf-8')}, 200) 
+
+
+@user_app.route('/api/v1/login/guest', methods=['POST'])
+def login_guest():
+    userId = str(uuid.uuid4())
+    user = {
+        'id': userId, 
+        'partitionKey': {
+            "partition": "user"
+        },
+        'data':{}
+    }
+
+    payload = {'id': user.get('id')}
+    token = jwt.encode(payload, config.settings['token_secret_key'], algorithm='HS256')
+
+    db_response = user_service.create_user(user)
+    if db_response == "Conflict":
+        return make_response(db_response, 409)
+    return make_response({'token': token.decode('utf-8')}, 200)
 
 
 @user_app.route('/api/v1/user', methods=['PUT'])
