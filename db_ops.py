@@ -22,7 +22,7 @@ def check_user_exists(uname):
             query = "SELECT * FROM users WHERE users.uname = @uname AND users.partitionKey=@partitionKey",
             parameters=[
                 {"name":"@uname", "value": uname},
-                {"name":"@partitionKey", "value": "users"}],
+                {"name":"@partition", "value": "users"}],
             enable_cross_partition_query=True))
     except e:
         return False
@@ -37,7 +37,7 @@ def check_mail_exists(mail):
             query = "SELECT * FROM users WHERE users.mail = @mail AND users.partitionKey=@partitionKey",
             parameters=[
                 {"name":"@mail", "value": mail},
-                {"name":"@partitionKey", "value": "user"}],
+                {"name":"@partition", "value": "user"}],
             enable_cross_partition_query=True))
     except e:
         return False
@@ -52,7 +52,7 @@ def check_password(mail, passhash):
             query = "SELECT * FROM users WHERE users.mail = @mail AND users.partitionKey=@partitionKey",
             parameters=[
                 {"name":"@mail", "value": mail},
-                {"name":"@partitionKey", "value": "user"}],
+                {"name":"@partition", "value": "user"}],
             enable_cross_partition_query=True))
     except e:
         return False
@@ -67,7 +67,7 @@ def read_items(ownerId):
             query="SELECT * FROM i WHERE i.ownerId=@ownerId AND i.partitionKey=@partitionKey",
             parameters=[
                 {"name":"@ownerId", "value": ownerId},
-                {"name":"@partitionKey", "value": "todo"}],
+                {"name":"@partition", "value": "todo"}],
             enable_cross_partition_query=True))
     except exceptions.CosmosHttpResponseError:
         response = "ServerError"
@@ -83,7 +83,7 @@ def read_item(id, ownerId):
             parameters=[
                 {"name":"@id", "value": id},
                 {"name":"@ownerId", "value": ownerId},
-                {"name":"@partitionKey", "value": "todo"}],
+                {"name":"@partition", "value": "todo"}],
             enable_cross_partition_query=True)).pop(0)
     except exceptions.CosmosHttpResponseError:
         item = "ServerError"
@@ -99,7 +99,7 @@ def get_user_by_id(id):
             query="SELECT * FROM users WHERE users.id=@id AND users.partitionKey=@partitionKey",
             parameters=[
                 {"name":"@id", "value": id},
-                {"name":"@partitionKey", "value": "user"}],
+                {"name":"@partition", "value": "user"}],
             enable_cross_partition_query=True)).pop();
     except exceptions.CosmosHttpResponseError:
         response = "ServerError"
@@ -115,7 +115,7 @@ def get_user_by_email(mail):
             query="SELECT * FROM users WHERE users.mail=@mail AND users.partitionKey=@partitionKey",
             parameters=[
                 {"name":"@mail", "value": mail},
-                {"name":"@partitionKey", "value": "user"}],
+                {"name":"@partition", "value": "user"}],
             enable_cross_partition_query=True)).pop();
     except exceptions.CosmosHttpResponseError:
         response = "ServerError"
